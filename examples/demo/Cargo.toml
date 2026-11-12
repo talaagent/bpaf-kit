@@ -1,0 +1,23 @@
+[package]
+name = "demo"
+description = "Example CLI exercising every bpaf-kit module."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+bpaf = { workspace = true, features = ["derive"] }
+bpaf-kit = { workspace = true, features = ["log-json", "man", "prompt", "strum", "table"] }
+strum = { workspace = true, features = ["derive"] }
+thiserror.workspace = true
+tracing.workspace = true
+
+[build-dependencies]
+bpaf-kit-build.workspace = true
+
+[lints]
+workspace = true
