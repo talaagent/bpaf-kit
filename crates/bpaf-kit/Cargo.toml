@@ -1,0 +1,52 @@
+[package]
+name = "bpaf-kit"
+description = "Batteries for Rust CLIs built on bpaf: subprocess runner, Ctrl-C handling, build info, did-you-mean, tables, manpages, logging."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[features]
+default = ["derive"]
+## `#[derive(Cli)]`.
+derive = ["dep:bpaf-kit-macros"]
+## `miette::Diagnostic` impls on the error types.
+miette = ["dep:miette"]
+## `table`: comfy-table presets.
+table = ["dep:comfy-table"]
+## `man`: manpage rendering from the bpaf parser.
+man = ["bpaf/docgen"]
+## `log`: tracing-subscriber init with `-v`/`-q` counting flags.
+log = ["dep:tracing", "dep:tracing-subscriber"]
+## `--log-json`: JSON log lines (pulls serde_json).
+log-json = ["log", "tracing-subscriber/json"]
+## `suggest::parse_enum` for strum `EnumString + VariantNames` enums.
+strum = ["dep:strum"]
+## `prompt`: dialoguer helpers.
+prompt = ["dep:dialoguer"]
+
+[dependencies]
+bpaf.workspace = true
+bpaf-kit-macros = { workspace = true, optional = true }
+comfy-table = { workspace = true, optional = true }
+ctrlc.workspace = true
+dialoguer = { workspace = true, optional = true }
+miette = { workspace = true, optional = true }
+strsim.workspace = true
+strum = { workspace = true, optional = true }
+thiserror.workspace = true
+tracing = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true }
+
+[dev-dependencies]
+bpaf = { workspace = true, features = ["derive"] }
+strum = { workspace = true, features = ["derive"] }
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lints]
+workspace = true
