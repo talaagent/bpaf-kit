@@ -985,6 +985,23 @@ mod tests {
         assert_eq!(s, want);
     }
 
+    #[cfg(feature = "miette")]
+    #[test]
+    fn miette_codes_match() {
+        use miette::Diagnostic;
+        for err in [
+            sh("exit 1").run().unwrap_err(),
+            sh("printf '\\377'").capture_stdout().unwrap_err(),
+            Cmd::new("definitely-not-a-program-7f3a")
+                .echo(false)
+                .run()
+                .unwrap_err(),
+        ] {
+            let diag = Diagnostic::code(&err).map(|c| c.to_string());
+            assert_eq!(diag.as_deref(), Some(err.code()));
+        }
+    }
+
     #[test]
     fn bools() {
         assert_eq!(parse_bool("ON"), Some(true));

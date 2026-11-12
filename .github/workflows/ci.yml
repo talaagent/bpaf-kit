@@ -24,3 +24,10 @@ jobs:
         run: nix develop -c cargo clippy --all-targets -- -D warnings
       - name: test
         run: nix develop -c cargo test
+      - name: feature combinations
+        run: |
+          nix develop -c cargo clippy -p bpaf-kit --no-default-features --all-targets -- -D warnings
+          nix develop -c cargo test -p bpaf-kit --no-default-features
+          nix develop -c cargo test -p bpaf-kit --all-features
+      - name: nix build
+        run: nix build .#demo && ./result/bin/demo --version --verbose
