@@ -87,8 +87,9 @@ let out = Cmd::new("make")
 - Every command is echoed to stderr first, `set -x` style:
   `+ cd vendor/lib && CI=1 make check`. Off with `.echo(false)`,
   `cmd::set_echo(false)`, or `BPAF_KIT_ECHO=0`.
-- Per stream: `Inherit`, `Capture`, `Tee` (both), `Null`. `run()` inherits,
-  `output()` and `capture_stdout()` capture.
+- Per stream: `Inherit`, `Capture`, `Tee` (both), `Null`, `Stderr` (a
+  child's stdout onto our stderr, for tools whose stdout is `eval`'d).
+  `run()` inherits, `output()` and `capture_stdout()` capture.
 - A non-zero exit is `Error::Exit` with the last 4 KiB of the child's stderr
   (when captured or tee'd). Every error has a stable `code()`: `cmd_spawn`,
   `cmd_io`, `cmd_exit`, `cmd_timeout`, `cmd_utf8`.

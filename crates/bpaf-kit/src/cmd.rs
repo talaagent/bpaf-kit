@@ -68,6 +68,9 @@ pub enum Redirect {
     Tee,
     /// Discard (`/dev/null`).
     Null,
+    /// Write to the parent's stderr. For a child's stdout when this
+    /// program's own stdout is reserved (output meant for `eval`, say).
+    Stderr,
 }
 
 impl Redirect {
@@ -76,6 +79,7 @@ impl Redirect {
             Self::Inherit => Stdio::inherit(),
             Self::Capture | Self::Tee => Stdio::piped(),
             Self::Null => Stdio::null(),
+            Self::Stderr => io::stderr().into(),
         }
     }
 }
@@ -810,6 +814,13 @@ mod tests {
             cmd.display().to_string(),
             "cd '/srv/my app' && DATABASE_URL='postgres://u@h/db?x=1' migrate up"
         );
+    }
+
+    #[test]
+    fn stdout_to_stderr_is_not_captured() {
+        let out = sh("printf out").stdout(Redirect::Stderr).output().unwrap();
+        assert!(out.success());
+        assert!(out.stdout.is_empty());
     }
 
     #[test]
