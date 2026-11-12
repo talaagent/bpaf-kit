@@ -1,0 +1,40 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/talaagent/bpaf-kit"
+authors = ["Ian Macalinao <github@igm.pub>"]
+publish = false
+
+[workspace.dependencies]
+bpaf = "0.9.20"
+comfy-table = "7"
+ctrlc = "3.4"
+dialoguer = { version = "0.12", default-features = false }
+miette = { version = "7.6", default-features = false, features = ["derive"] }
+proc-macro2 = "1"
+quote = "1"
+strsim = "0.11"
+strum = { version = "0.27", default-features = false }
+syn = { version = "2", default-features = false, features = ["derive", "parsing", "printing", "proc-macro"] }
+thiserror = "2"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt", "env-filter", "ansi"] }
+bpaf-kit = { path = "crates/bpaf-kit" }
+bpaf-kit-build = { path = "crates/bpaf-kit-build" }
+bpaf-kit-macros = { path = "crates/bpaf-kit-macros" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+clone_on_ref_ptr = "deny"
+std_instead_of_core = "warn"

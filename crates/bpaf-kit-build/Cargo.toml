@@ -1,0 +1,13 @@
+[package]
+name = "bpaf-kit-build"
+description = "Build-script helper that bakes git rev, dirty flag, build date and target into a binary for bpaf-kit's version info."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
