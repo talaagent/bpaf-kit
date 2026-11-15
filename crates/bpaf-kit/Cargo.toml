@@ -8,6 +8,10 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 publish.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/bpaf-kit"
+keywords = ["cli", "bpaf", "subprocess", "version", "manpage"]
+categories = ["command-line-interface"]
 
 [features]
 default = ["derive"]

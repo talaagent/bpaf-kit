@@ -65,9 +65,11 @@ bpaf's `check_invariants` on the parser, so a badly-shaped parser fails
 `cargo test` instead of the first user. Without the derive, the same
 sequence is `bpaf_kit::App::new(parser, bpaf_kit::build_info!()).run()`.
 
-[`examples/demo`](examples/demo/src/main.rs) is a small CLI that uses every
-module, and its [tests](examples/demo/tests/cli.rs) show the behaviour end
-to end.
+[`examples/demo`][demo] is a small CLI that uses every module, and its
+[tests][demo-tests] show the behaviour end to end.
+
+[demo]: https://github.com/talaagent/bpaf-kit/blob/main/examples/demo/src/main.rs
+[demo-tests]: https://github.com/talaagent/bpaf-kit/blob/main/examples/demo/tests/cli.rs
 
 ## Modules
 
@@ -156,7 +158,9 @@ date=2026-11-12
 target=x86_64-unknown-linux-gnu
 ```
 
-This flake exports a wrapper ([`nix/with-version-file.nix`](nix/with-version-file.nix)):
+This flake exports a wrapper ([`nix/with-version-file.nix`][wrapper]):
+
+[wrapper]: https://github.com/talaagent/bpaf-kit/blob/main/nix/with-version-file.nix
 
 ```nix
 {
@@ -272,8 +276,11 @@ strsim and thiserror only.
 
 ## Contributing
 
-Pull requests welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Report
-security issues privately as described in [SECURITY.md](SECURITY.md).
+Pull requests welcome; see [CONTRIBUTING.md][contributing]. Report
+security issues privately as described in [SECURITY.md][security].
+
+[contributing]: https://github.com/talaagent/bpaf-kit/blob/main/CONTRIBUTING.md
+[security]: https://github.com/talaagent/bpaf-kit/blob/main/SECURITY.md
 
 ## License
 

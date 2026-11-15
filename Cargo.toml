@@ -25,9 +25,9 @@ syn = { version = "2", default-features = false, features = ["derive", "parsing"
 thiserror = "2"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt", "env-filter", "ansi"] }
-bpaf-kit = { path = "crates/bpaf-kit" }
-bpaf-kit-build = { path = "crates/bpaf-kit-build" }
-bpaf-kit-macros = { path = "crates/bpaf-kit-macros" }
+bpaf-kit = { version = "0.1.0", path = "crates/bpaf-kit" }
+bpaf-kit-build = { version = "0.1.0", path = "crates/bpaf-kit-build" }
+bpaf-kit-macros = { version = "0.1.0", path = "crates/bpaf-kit-macros" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
