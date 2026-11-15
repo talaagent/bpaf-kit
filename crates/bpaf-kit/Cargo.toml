@@ -3,7 +3,8 @@ name = "bpaf-kit"
 description = "Batteries for Rust CLIs built on bpaf: #[derive(Cli)] startup, subprocesses, Ctrl-C, --version build info, did-you-mean, tables, manpages, logging"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
+# Let chains need 1.88.
+rust-version = "1.88"
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true

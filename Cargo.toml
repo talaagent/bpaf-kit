@@ -5,7 +5,10 @@ members = ["crates/*", "examples/*"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+# The default MSRV, edition 2024's floor: bpaf-kit-macros and
+# bpaf-kit-build. bpaf-kit (and the demo) override it with 1.88 (let
+# chains). CI's `msrv` job tests each crate at its own value.
+rust-version = "1.85"
 license = "Apache-2.0"
 repository = "https://github.com/talaagent/bpaf-kit"
 homepage = "https://github.com/talaagent/bpaf-kit"
