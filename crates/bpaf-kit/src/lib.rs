@@ -150,12 +150,12 @@ impl<T> App<T> {
     pub fn run_with_log_args(self, log_args: impl FnOnce(&T) -> &log::LogArgs) -> T {
         self.before_parse();
         let opts = self.parser.run();
-        if let Some(default) = self.log {
-            if let Err(err @ log::Error::Filter { .. }) = log::init(default, log_args(&opts)) {
-                // A bad compiled-in filter is a programming error worth seeing;
-                // an already-set subscriber is the program's own choice.
-                eprintln!("warning: {err}");
-            }
+        // A bad compiled-in filter is a programming error worth seeing; an
+        // already-set subscriber is the program's own choice.
+        if let Some(default) = self.log
+            && let Err(err @ log::Error::Filter { .. }) = log::init(default, log_args(&opts))
+        {
+            eprintln!("warning: {err}");
         }
         opts
     }

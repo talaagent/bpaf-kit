@@ -20,6 +20,8 @@ bpaf-kit = { git = "https://github.com/talaagent/bpaf-kit", features = ["log", "
 bpaf-kit-build = { git = "https://github.com/talaagent/bpaf-kit" }
 ```
 
+Needs Rust 1.88 or newer.
+
 ## Quick start
 
 ```rust,no_run
