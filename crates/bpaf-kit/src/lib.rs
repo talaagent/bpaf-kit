@@ -57,6 +57,11 @@ pub use bpaf_kit_macros::Cli;
 
 pub use crate::version::BuildInfo;
 
+// The README's examples, compiled and run by `cargo test`.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
 /// Whether to write ANSI colors to `stream`: it is a terminal and `NO_COLOR`
 /// is unset or empty.
 pub fn color_enabled(stream: &impl IsTerminal) -> bool {

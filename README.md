@@ -22,7 +22,8 @@ bpaf-kit-build = { git = "https://github.com/talaagent/bpaf-kit" }
 
 ## Quick start
 
-```rust
+```rust,no_run
+# #[cfg(all(feature = "derive", feature = "log"))] mod quick_start {
 use bpaf::Bpaf;
 use bpaf_kit::{Cli, cmd::Cmd, log::LogArgs};
 
@@ -44,9 +45,11 @@ fn main() -> Result<(), bpaf_kit::cmd::Error> {
     Cmd::new("git").args(["push", "origin", opts.env.as_str()]).run()?;
     Ok(())
 }
+# }
+# fn main() {}
 ```
 
-```rust
+```rust,no_run
 // build.rs
 fn main() {
     bpaf_kit_build::emit();
@@ -68,9 +71,10 @@ to end.
 
 ### `cmd`: running subprocesses
 
-```rust
+```rust,no_run
 use bpaf_kit::cmd::{Cmd, Redirect};
 use std::time::Duration;
+# fn main() -> Result<(), bpaf_kit::cmd::Error> {
 
 Cmd::new("cargo").args(["build", "--release"]).run()?;            // + cargo build --release
 let rev = Cmd::new("git").args(["rev-parse", "HEAD"]).capture_stdout()?;
@@ -82,6 +86,7 @@ let out = Cmd::new("make")
     .timeout(Duration::from_secs(60))
     .allow_failure()                // non-zero exit is an Output, not an Err
     .output()?;
+# Ok(()) }
 ```
 
 - Every command is echoed to stderr first, `set -x` style:
@@ -195,13 +200,29 @@ use bpaf_kit::suggest;
 suggest::did_you_mean("stauts", ["status", "stash"]);          // Some("status")
 suggest::parse_choice("format", "jsno", &[("json", 1), ("yaml", 2)]);
 // Err: unknown format 'jsno', did you mean 'json'? (valid: json, yaml)
+# assert_eq!(suggest::did_you_mean("stauts", ["status", "stash"]), Some("status"));
+# assert_eq!(
+#     suggest::parse_choice("format", "jsno", &[("json", 1), ("yaml", 2)]).unwrap_err().to_string(),
+#     "unknown format 'jsno', did you mean 'json'? (valid: json, yaml)",
+# );
 ```
 
 With the `strum` feature, any `#[derive(EnumString, VariantNames)]` enum:
 
 ```rust
+# #[cfg(feature = "strum")] {
+# #[derive(Debug, Clone, strum::EnumString, strum::VariantNames)]
+# #[strum(serialize_all = "kebab-case")]
+# enum OutputFormat { Json, PrettyTable }
+# #[derive(Debug, Clone, bpaf::Bpaf)]
+# #[bpaf(options)]
+# struct Opts {
 #[bpaf(long, argument::<String>("FORMAT"), parse(bpaf_kit::suggest::bpaf_enum))]
 format: OutputFormat,
+# }
+# let err = opts().run_inner(&["--format", "pretty-tabel"]).unwrap_err().unwrap_stderr();
+# assert!(err.contains("did you mean 'pretty-table'?"), "{err}");
+# }
 // $ tool --format pretty-tabel
 // Error: couldn't parse `pretty-tabel`: unknown output format 'pretty-tabel',
 //        did you mean 'pretty-table'? (valid: json, pretty-table)
