@@ -9,10 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0](https://github.com/talaagent/bpaf-kit/compare/v0.1.0...v0.2.0) - 2026-11-15
 
-### Other
-
-- max_output caps each captured stream, draining the rest ([#2](https://github.com/talaagent/bpaf-kit/pull/2))
-
 ### Added
 
 - `Cmd::max_output`: keep at most N bytes of each captured stream (the
