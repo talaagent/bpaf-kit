@@ -26,7 +26,7 @@ use syn::{Data, DeriveInput, Expr, ExprLit, Ident, Lit, LitStr, parse_macro_inpu
 /// Generated:
 ///
 /// - `fn parser() -> bpaf::OptionParser<Self>`: the bpaf-generated parser
-///   (the type name in snake_case, or `#[cli(parser = name)]`) with the
+///   (the type name in `snake_case`, or `#[cli(parser = name)]`) with the
 ///   compiled-in version attached.
 /// - `fn cli() -> Self`: `bpaf_kit::App::run` on it: Ctrl-C handler,
 ///   `--man`, `--version [--verbose]`, parse, logging init.
@@ -99,9 +99,10 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
         Log::Filter(s) => quote!(.log(::core::option::Option::Some(#s))),
         Log::Off => quote!(.log(::core::option::Option::None)),
     };
-    let run = match log_args {
-        Some(field) => quote!(.run_with_log_args(|opts: &Self| &opts.#field)),
-        None => quote!(.run()),
+    let run = if let Some(field) = log_args {
+        quote!(.run_with_log_args(|opts: &Self| &opts.#field))
+    } else {
+        quote!(.run())
     };
     let test_mod = format_ident!("__{}_cli", snake_case(&ty.to_string()));
 
@@ -149,15 +150,14 @@ fn find_log_args(input: &DeriveInput) -> syn::Result<Option<TokenStream2>> {
                 if found.is_some() {
                     return Err(meta.error("only one field can be `#[cli(log_args)]`"));
                 }
-                found = Some(match &field.ident {
-                    Some(ident) => quote!(#ident),
-                    None => {
-                        let index = syn::Index {
-                            index: u32::try_from(i).unwrap_or(u32::MAX),
-                            span: Span::call_site(),
-                        };
-                        quote!(#index)
-                    }
+                found = Some(if let Some(ident) = &field.ident {
+                    quote!(#ident)
+                } else {
+                    let index = syn::Index {
+                        index: u32::try_from(i).unwrap_or(u32::MAX),
+                        span: Span::call_site(),
+                    };
+                    quote!(#index)
                 });
                 Ok(())
             })?;

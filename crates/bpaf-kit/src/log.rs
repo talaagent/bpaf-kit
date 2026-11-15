@@ -92,7 +92,7 @@ pub enum Error {
 }
 
 impl Error {
-    /// Stable snake_case identifier.
+    /// Stable `snake_case` identifier.
     #[must_use]
     pub const fn code(&self) -> &'static str {
         match self {
@@ -253,7 +253,8 @@ mod tests {
 
     #[test]
     fn format_and_init() {
-        use std::sync::{Arc, Mutex};
+        use alloc::sync::Arc;
+        use std::sync::Mutex;
         use tracing_subscriber::fmt::MakeWriter;
 
         #[derive(Clone, Default)]

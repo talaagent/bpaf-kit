@@ -26,7 +26,7 @@ pub struct Error {
 }
 
 impl Error {
-    /// Stable snake_case identifier.
+    /// Stable `snake_case` identifier.
     #[must_use]
     pub const fn code(&self) -> &'static str {
         "interrupt_install"

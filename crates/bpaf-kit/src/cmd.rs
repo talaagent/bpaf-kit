@@ -33,15 +33,15 @@
 //! child's stderr whenever stderr was captured or tee'd; use
 //! [`Cmd::allow_failure`] to get the [`Output`] back instead.
 
+use alloc::borrow::Cow;
+use alloc::string::FromUtf8Error;
 use core::fmt;
 use core::sync::atomic::{AtomicU8, Ordering};
 use core::time::Duration;
-use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process::{Child, ChildStderr, ChildStdout, Command, ExitStatus, Stdio};
-use std::string::FromUtf8Error;
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
@@ -178,7 +178,7 @@ pub enum Error {
 }
 
 impl Error {
-    /// Stable snake_case identifier for the error kind.
+    /// Stable `snake_case` identifier for the error kind.
     #[must_use]
     pub const fn code(&self) -> &'static str {
         match self {

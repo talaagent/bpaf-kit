@@ -31,8 +31,10 @@
 //! }
 //! ```
 //!
-//! Error types carry stable snake_case codes (`code()`); with the `miette`
+//! Error types carry stable `snake_case` codes (`code()`); with the `miette`
 //! feature they implement `miette::Diagnostic` with the same codes.
+
+extern crate alloc;
 
 pub mod cmd;
 pub mod interrupt;

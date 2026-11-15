@@ -59,8 +59,8 @@
 //! The file is read only when the version is asked for, never on a normal
 //! start.
 
+use alloc::borrow::Cow;
 use core::fmt;
-use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
