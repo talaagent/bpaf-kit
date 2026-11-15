@@ -984,6 +984,22 @@ mod tests {
         assert_eq!(s, "");
     }
 
+    // The only test that turns on the process-wide flag; every other test
+    // that runs a command sets `dry_run` on it explicitly.
+    #[test]
+    fn dry_run_false_exempts_a_command_from_global_dry_run() {
+        set_dry_run(true);
+        let exempt = sh("printf ran").capture_stdout();
+        let skipped = Cmd::new("sh")
+            .args(["-c", "printf ran"])
+            .echo(false)
+            .output();
+        set_dry_run(false);
+        assert_eq!(exempt.unwrap(), "ran");
+        let skipped = skipped.unwrap();
+        assert!(skipped.dry_run && skipped.stdout.is_empty());
+    }
+
     #[test]
     fn env_and_cwd_reach_the_child() {
         let dir = std::env::temp_dir();
@@ -1005,6 +1021,7 @@ mod tests {
             sh("printf '\\377'").capture_stdout().unwrap_err(),
             Cmd::new("definitely-not-a-program-7f3a")
                 .echo(false)
+                .dry_run(false)
                 .run()
                 .unwrap_err(),
         ] {

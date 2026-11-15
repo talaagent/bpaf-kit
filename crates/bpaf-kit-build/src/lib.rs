@@ -81,6 +81,24 @@ pub fn emit() {
     }
 }
 
+/// The UTC build date from `SOURCE_DATE_EPOCH` when set, else from the
+/// clock. `None` for an unparsable value or Nix's placeholder.
+fn build_date(source_date_epoch: Option<&str>) -> Option<String> {
+    let secs = match source_date_epoch {
+        // Nix sets 1980-01-01 as a placeholder: no real date to report.
+        Some(epoch) => epoch
+            .trim()
+            .parse()
+            .ok()
+            .filter(|&s| s != NIX_PLACEHOLDER_EPOCH)?,
+        None => std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()?
+            .as_secs(),
+    };
+    Some(date_from_unix(secs))
+}
+
 /// Collect build info without printing anything.
 ///
 /// Explicit env vars win over `git`; `git` runs in `CARGO_MANIFEST_DIR` (or
@@ -91,21 +109,8 @@ pub fn collect() -> Info {
     let mut info = Info {
         git_rev: non_empty_env(GIT_REV),
         git_dirty: non_empty_env(GIT_DIRTY).and_then(|v| parse_bool(&v)),
-        build_date: non_empty_env(BUILD_DATE).or_else(|| {
-            let secs = match non_empty_env("SOURCE_DATE_EPOCH") {
-                // Nix sets 1980-01-01 as a placeholder: no real date to report.
-                Some(epoch) => epoch
-                    .trim()
-                    .parse()
-                    .ok()
-                    .filter(|&s| s != NIX_PLACEHOLDER_EPOCH)?,
-                None => std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .ok()?
-                    .as_secs(),
-            };
-            Some(date_from_unix(secs))
-        }),
+        build_date: non_empty_env(BUILD_DATE)
+            .or_else(|| build_date(non_empty_env("SOURCE_DATE_EPOCH").as_deref())),
         target: non_empty_env(TARGET).or_else(|| non_empty_env("TARGET")),
         watch: Vec::new(),
     };
@@ -214,6 +219,21 @@ mod tests {
         assert_eq!(date_from_unix(1_709_164_800), "2024-02-29");
         assert_eq!(date_from_unix(1_798_761_599), "2026-12-31");
         assert_eq!(date_from_unix(1_798_761_600), "2027-01-01");
+    }
+
+    #[test]
+    fn source_date_epoch() {
+        assert_eq!(
+            build_date(Some("1709164800")).as_deref(),
+            Some("2024-02-29")
+        );
+        assert_eq!(
+            build_date(Some(" 1709164800\n")).as_deref(),
+            Some("2024-02-29")
+        );
+        assert_eq!(build_date(Some("315532800")), None);
+        assert_eq!(build_date(Some("yesterday")), None);
+        assert_eq!(build_date(None).map(|d| d.len()), Some(10));
     }
 
     #[test]
