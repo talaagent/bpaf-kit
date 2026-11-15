@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Cmd::max_output`: keep at most N bytes of each captured stream (the
+  rest is drained and dropped), with `Output::stdout_truncated` and
+  `Output::stderr_truncated`.
+
 ## [0.1.0](https://github.com/talaagent/bpaf-kit/releases/tag/v0.1.0) - 2026-11-15
 
 First release. All crates share one version.
