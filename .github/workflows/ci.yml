@@ -1,53 +1,183 @@
-name: ci
+# CI: fmt, clippy, tests, feature combinations, MSRV, docs, cargo-deny,
+# package verification and the Nix flake (dev shell and the demo build).
+
+name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  # The toolchain the crates are developed against (rust-toolchain.toml).
+  # Bump it with release-plz.yml's.
+  RUST_TOOLCHAIN: "1.98.1"
 
 jobs:
-  check:
-    # Off while the repo is private (no Actions minutes); on once public.
-    if: ${{ !github.event.repository.private }}
+  fmt:
+    name: rustfmt
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v31
-      - name: fmt
-        run: nix develop -c cargo fmt --check
-      - name: clippy
-        run: nix develop -c cargo clippy --all-targets -- -D warnings
-      - name: test
-        run: nix develop -c cargo test
-      - name: feature combinations
+      - uses: actions/checkout@v7
+      # dtolnay/rust-toolchain master @ 2026-10-16; installs env.RUST_TOOLCHAIN (1.98.1)
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # dtolnay/rust-toolchain master @ 2026-10-16; installs env.RUST_TOOLCHAIN (1.98.1)
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo clippy -p bpaf-kit --all-targets --no-default-features --locked -- -D warnings
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # dtolnay/rust-toolchain master @ 2026-10-16; installs env.RUST_TOOLCHAIN (1.98.1)
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@nextest
+      - run: cargo nextest run --profile ci --workspace --locked
+      - run: cargo nextest run --profile ci --workspace --all-features --locked
+      # README and API examples (the bpaf-kit README is its crate docs).
+      - run: cargo test --workspace --all-features --doc --locked
+
+  features:
+    name: feature combinations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # dtolnay/rust-toolchain master @ 2026-10-16; installs env.RUST_TOOLCHAIN (1.98.1)
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      - uses: Swatinem/rust-cache@v2
+      - name: bpaf-kit without default features, then with each feature alone
         run: |
-          nix develop -c cargo clippy -p bpaf-kit --no-default-features --all-targets -- -D warnings
-          nix develop -c cargo test -p bpaf-kit --no-default-features
-          nix develop -c cargo clippy --workspace --all-features --all-targets -- -D warnings
-          nix develop -c cargo test -p bpaf-kit --all-features
-      - name: doc
-        run: RUSTDOCFLAGS="-D warnings" nix develop -c cargo doc --no-deps --all-features
-      - name: nix build
-        run: nix build .#demo && ./result/bin/demo --version --verbose
+          cargo test -p bpaf-kit --no-default-features --locked
+          for f in derive miette table man log log-json strum prompt; do
+            cargo test -p bpaf-kit --no-default-features --features "$f" --locked
+          done
+      - name: the core depends on bpaf, ctrlc, strsim and thiserror only
+        run: |
+          deps=$(cargo tree -p bpaf-kit --no-default-features -e normal --depth 1 --prefix none --locked | tail -n +2 | cut -d' ' -f1 | sort | tr '\n' ' ')
+          echo "$deps"
+          test "$deps" = "bpaf ctrlc strsim thiserror "
+      - name: bpaf-kit-build has no dependencies
+        run: |
+          test "$(cargo tree -p bpaf-kit-build -e normal,build --prefix none --locked | wc -l)" = 1
 
   msrv:
-    if: ${{ !github.event.repository.private }}
+    name: MSRV (per crate)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      # Overrides rust-toolchain.toml; keep in step with `rust-version`.
-      RUSTUP_TOOLCHAIN: "1.88"
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
+      - uses: actions/checkout@v7
+      # dtolnay/rust-toolchain master @ 2026-10-16; installs env.RUST_TOOLCHAIN (1.98.1)
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
-          toolchain: "1.88"
-      - name: check
-        run: cargo check --workspace --all-features --locked
-      - name: test
-        run: cargo test -p bpaf-kit --locked
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      # Re-resolve Cargo.lock with a current cargo, whose rust-version-aware
+      # resolver (resolver 3) picks dependency versions that still build on
+      # the lowest MSRV.
+      - run: cargo generate-lockfile
+      - name: Read each crate's rust-version
+        run: |
+          cargo metadata --no-deps --format-version 1 --locked | python3 -c '
+          import json, sys
+          for p in json.load(sys.stdin)["packages"]:
+              print(p["name"], p["rust_version"], " ".join(p["features"]), sep="\t")
+          ' > "$RUNNER_TEMP/msrv.tsv"
+          cat "$RUNNER_TEMP/msrv.tsv"
+      - name: Install the MSRV toolchains
+        run: |
+          cut -f2 "$RUNNER_TEMP/msrv.tsv" | sort -u | while read -r v; do
+            rustup toolchain install "$v" --profile minimal --no-self-update
+          done
+      - uses: Swatinem/rust-cache@v2
+      - name: Build and test each crate at its rust-version
+        run: |
+          set -euo pipefail
+          while IFS=$'\t' read -r name version features; do
+            echo "::group::$name on $version"
+            cargo "+$version" check -p "$name" --locked
+            cargo "+$version" test -p "$name" --locked
+            if [ -n "$features" ]; then
+              cargo "+$version" test -p "$name" --no-default-features --locked
+              cargo "+$version" test -p "$name" --all-features --locked
+            fi
+            echo "::endgroup::"
+          done < "$RUNNER_TEMP/msrv.tsv"
+
+  doc:
+    name: docs
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v7
+      # dtolnay/rust-toolchain master @ 2026-10-16; installs env.RUST_TOOLCHAIN (1.98.1)
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --workspace --no-deps --all-features --locked
+
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Licenses (permissive only), advisories, bans and sources: see
+      # deny.toml.
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+
+  package:
+    name: package verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # dtolnay/rust-toolchain master @ 2026-10-16; installs env.RUST_TOOLCHAIN (1.98.1)
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      - uses: Swatinem/rust-cache@v2
+      # Packages and builds every crate against the others' packaged sources.
+      - run: cargo publish --workspace --dry-run --locked
+
+  nix:
+    name: Nix flake
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: cachix/install-nix-action@v31
+      - run: nix flake check -L
+      - run: nix develop --command cargo nextest --version
+      - run: nix develop --command cargo fmt --all --check
+      # The demo built through lib.withVersionFile reports the flake's rev.
+      - run: nix build -L .#demo && ./result/bin/demo --version --verbose
