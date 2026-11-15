@@ -270,14 +270,10 @@ on dialoguer, each installing the Ctrl-C handler first.
 The core (`cmd`, `interrupt`, `version`, `suggest`) depends on bpaf, ctrlc,
 strsim and thiserror only.
 
-## Development
+## Contributing
 
-```sh
-nix develop -c cargo fmt
-nix develop -c cargo clippy --all-targets -- -D warnings
-nix develop -c cargo test
-nix build .#demo && ./result/bin/demo --version --verbose
-```
+Pull requests welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Report
+security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
