@@ -1,38 +1,8 @@
-//! Batteries for Rust CLIs built on [`bpaf`].
-//!
-//! - [`cmd`]: run subprocesses with `set -x`-style echo, per-stream
-//!   inherit/capture/tee, timeouts, dry-run, and coded errors that quote the
-//!   child's stderr.
-//! - [`interrupt`]: a Ctrl-C handler that shows the cursor again (after an
-//!   interrupted prompt) and exits 130.
-//! - [`version`]: `--version` / `--version --verbose` from compile-time
-//!   build info, with a runtime override file for Nix-wrapped binaries.
-//! - [`suggest`]: "did you mean …?" for enum-like arguments.
-//! - `table` (feature `table`): comfy-table presets.
-//! - `man` (feature `man`): manpages from the bpaf parser.
-//! - `log` (feature `log`): tracing-subscriber setup with `-v`/`-q`.
-//! - `prompt` (feature `prompt`): dialoguer helpers.
-//! - [`App`] and `#[derive(Cli)]` (feature `derive`, on by default): the
-//!   startup sequence tying it together, plus a parser invariant test.
-//!
-//! ```ignore
-//! #[derive(Debug, Clone, bpaf::Bpaf, bpaf_kit::Cli)]
-//! #[bpaf(options)]
-//! struct Opts {
-//!     #[bpaf(external(bpaf_kit::log::log_args))]
-//!     #[cli(log_args)]
-//!     log: bpaf_kit::log::LogArgs,
-//!     #[bpaf(positional("FILE"))]
-//!     file: String,
-//! }
-//!
-//! fn main() {
-//!     let opts = Opts::cli();
-//! }
-//! ```
-//!
-//! Error types carry stable `snake_case` codes (`code()`); with the `miette`
-//! feature they implement `miette::Diagnostic` with the same codes.
+#![doc = include_str!("../README.md")]
+#![allow(
+    clippy::needless_doctest_main,
+    reason = "the README shows build.rs, whose fn main is the point"
+)]
 
 extern crate alloc;
 
@@ -58,11 +28,6 @@ use bpaf::OptionParser;
 pub use bpaf_kit_macros::Cli;
 
 pub use crate::version::BuildInfo;
-
-// The README's examples, compiled and run by `cargo test`.
-#[cfg(doctest)]
-#[doc = include_str!("../README.md")]
-struct ReadmeDoctests;
 
 /// Whether to write ANSI colors to `stream`: it is a terminal and `NO_COLOR`
 /// is unset or empty.

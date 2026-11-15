@@ -1,4 +1,4 @@
-//! `#[derive(Cli)]` for `bpaf-kit`; see `bpaf_kit::Cli`.
+#![doc = include_str!("../README.md")]
 
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};

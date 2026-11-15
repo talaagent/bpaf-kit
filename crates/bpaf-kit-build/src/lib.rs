@@ -1,30 +1,8 @@
-//! Build-script helper for `bpaf_kit::version`.
-//!
-//! Call [`emit`] from your binary crate's `build.rs` `main`:
-//!
-//! ```no_run
-//! bpaf_kit_build::emit();
-//! ```
-//!
-//! It sets these compile-time env vars, which `bpaf_kit::build_info!()` reads
-//! with `option_env!`:
-//!
-//! | var                   | value                                      |
-//! |-----------------------|--------------------------------------------|
-//! | `BPAF_KIT_GIT_REV`    | full commit hash (`git rev-parse HEAD`)    |
-//! | `BPAF_KIT_GIT_DIRTY`  | `true` / `false` (tracked files modified)  |
-//! | `BPAF_KIT_BUILD_DATE` | `YYYY-MM-DD` (UTC)                         |
-//! | `BPAF_KIT_TARGET`     | the target triple                          |
-//!
-//! Each value can be forced by setting the same variable in the build
-//! environment, which is how sandboxed builds without a `.git` directory
-//! (Nix, vendored tarballs) pass them in. `SOURCE_DATE_EPOCH` is honoured for
-//! the build date so reproducible builds stay reproducible; Nix's
-//! placeholder value (1980-01-01) leaves the date unset.
-//!
-//! The helper has no dependencies and runs at most three short `git`
-//! commands. If `git` or the repository is missing, the value is left unset
-//! and the binary reports it as unknown.
+#![doc = include_str!("../README.md")]
+#![allow(
+    clippy::needless_doctest_main,
+    reason = "the README shows build.rs, whose fn main is the point"
+)]
 
 use std::env;
 use std::path::{Path, PathBuf};

@@ -1,28 +1,38 @@
 # bpaf-kit
 
-Batteries for Rust CLIs built on [bpaf](https://docs.rs/bpaf): the startup
-code and helpers every command-line tool ends up writing.
+[![CI][ci-badge]][ci] [![crates.io][version-badge]][crate] [![downloads][downloads-badge]][crate] [![docs.rs][docs-badge]][docs] [![lib.rs][librs-badge]][librs] [![Rust 1.88+][msrv-badge]][msrv] [![License: Apache-2.0][license-badge]][license]
 
-| crate             | what it is                                                      |
-|-------------------|-----------------------------------------------------------------|
-| `bpaf-kit`        | the library                                                     |
-| `bpaf-kit-macros` | `#[derive(Cli)]` (re-exported as `bpaf_kit::Cli`)               |
-| `bpaf-kit-build`  | dependency-free `build.rs` helper that bakes in git/build info  |
+Batteries for Rust command-line tools built on [bpaf](https://crates.io/crates/bpaf),
+the argument parsing library: a `#[derive(Cli)]` for the startup code every
+CLI ends up writing, plus subprocesses, `--version` build info, did-you-mean
+suggestions, manpages, logging, tables and prompts.
 
-Not on crates.io; depend on it by git:
+Not affiliated with bpaf; built on it.
 
 ```toml
 [dependencies]
 bpaf = { version = "0.9", features = ["derive"] }
-bpaf-kit = { git = "https://github.com/talaagent/bpaf-kit", features = ["log", "man"] }
+bpaf-kit = { version = "0.1", features = ["log", "man"] }
 
 [build-dependencies]
-bpaf-kit-build = { git = "https://github.com/talaagent/bpaf-kit" }
+bpaf-kit-build = "0.1"
 ```
 
-Needs Rust 1.88 or newer.
+## What you get
 
-## Quick start
+- `#[derive(Cli)]`: `Opts::cli()` installs a Ctrl-C handler, answers
+  `--version [--verbose]` and `--man`, parses the command line and sets up
+  logging from `-v`/`-q`/`RUST_LOG`. It also adds a test that runs bpaf's
+  `check_invariants` on the parser.
+- `cmd`: subprocesses echoed `set -x` style, with capture or tee per stream,
+  timeouts, dry run, and errors that quote the child's stderr.
+- `version`: git rev, dirty flag, build date and target baked in by
+  `bpaf-kit-build`, which a Nix wrapper can supply at run time instead.
+- `suggest`: "did you mean …?" for enum-like arguments.
+- Optional: tables (comfy-table), manpages, tracing logs, dialoguer prompts,
+  and miette diagnostics with the same stable error codes.
+
+## Example
 
 ```rust,no_run
 # #[cfg(all(feature = "derive", feature = "log"))] mod quick_start {
@@ -58,18 +68,23 @@ fn main() {
 }
 ```
 
-`Opts::cli()` installs the Ctrl-C handler, answers `--man` and
-`--version [--verbose]`, parses the command line, and sets up logging from
-`-v`/`-q`/`RUST_LOG`. The derive also adds a `#[cfg(test)]` test that runs
-bpaf's `check_invariants` on the parser, so a badly-shaped parser fails
+The derive's `#[cfg(test)]` test means a badly-shaped parser fails
 `cargo test` instead of the first user. Without the derive, the same
-sequence is `bpaf_kit::App::new(parser, bpaf_kit::build_info!()).run()`.
+startup is `bpaf_kit::App::new(parser, bpaf_kit::build_info!()).run()`.
 
 [`examples/demo`][demo] is a small CLI that uses every module, and its
 [tests][demo-tests] show the behaviour end to end.
 
 [demo]: https://github.com/talaagent/bpaf-kit/blob/main/examples/demo/src/main.rs
 [demo-tests]: https://github.com/talaagent/bpaf-kit/blob/main/examples/demo/tests/cli.rs
+
+## Crates
+
+| Crate | What it is |
+| --- | --- |
+| [`bpaf-kit`](https://crates.io/crates/bpaf-kit) | The library |
+| [`bpaf-kit-macros`](https://crates.io/crates/bpaf-kit-macros) | `#[derive(Cli)]`, re-exported as `bpaf_kit::Cli` |
+| [`bpaf-kit-build`](https://crates.io/crates/bpaf-kit-build) | Dependency-free `build.rs` helper that bakes in git and build info |
 
 ## Modules
 
@@ -266,13 +281,25 @@ on dialoguer, each installing the Ctrl-C handler first.
 | `table`    |         | `table`, comfy-table                              |
 | `man`      |         | `man`, `--man` (bpaf `docgen`)                    |
 | `log`      |         | `log`, tracing-subscriber                         |
-| `log-json` |         | `--log-json` (serde_json)                         |
+| `log-json` |         | `--log-json` (`serde_json`)                       |
 | `strum`    |         | `suggest::parse_enum` / `bpaf_enum`               |
 | `prompt`   |         | `prompt`, dialoguer                               |
 | `miette`   |         | `miette::Diagnostic` on error types (same codes)  |
 
 The core (`cmd`, `interrupt`, `version`, `suggest`) depends on bpaf, ctrlc,
 strsim and thiserror only.
+
+## MSRV
+
+Each crate declares its own `rust-version`, and CI builds and tests each
+crate on it.
+
+| Crates | MSRV |
+| --- | --- |
+| bpaf-kit | 1.88 (let chains) |
+| bpaf-kit-macros, bpaf-kit-build | 1.85 |
+
+Raising an MSRV is a minor-version change.
 
 ## Contributing
 
@@ -284,4 +311,18 @@ security issues privately as described in [SECURITY.md][security].
 
 ## License
 
-Apache-2.0. Copyright 2026 Ian Macalinao.
+Licensed under the [Apache License, Version 2.0][license].
+
+[ci-badge]: https://github.com/talaagent/bpaf-kit/actions/workflows/ci.yml/badge.svg
+[ci]: https://github.com/talaagent/bpaf-kit/actions/workflows/ci.yml
+[version-badge]: https://img.shields.io/crates/v/bpaf-kit.svg
+[downloads-badge]: https://img.shields.io/crates/d/bpaf-kit.svg
+[crate]: https://crates.io/crates/bpaf-kit
+[docs-badge]: https://docs.rs/bpaf-kit/badge.svg
+[docs]: https://docs.rs/bpaf-kit
+[librs-badge]: https://img.shields.io/badge/lib.rs-bpaf--kit-purple.svg
+[librs]: https://lib.rs/crates/bpaf-kit
+[msrv-badge]: https://img.shields.io/badge/rust-1.88%2B-orange.svg
+[msrv]: https://github.com/talaagent/bpaf-kit#msrv
+[license-badge]: https://img.shields.io/badge/license-Apache--2.0-blue.svg
+[license]: https://github.com/talaagent/bpaf-kit/blob/main/LICENSE
