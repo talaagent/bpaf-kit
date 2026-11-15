@@ -1,12 +1,15 @@
 # Changelog
 
-All notable changes to this project are documented here. The format is
-based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
-project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-11-15
+## [0.1.0](https://github.com/talaagent/bpaf-kit/releases/tag/v0.1.0)
+
+First release. All crates share one version.
 
 ### Added
 
@@ -29,7 +32,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (dialoguer) and `miette` (`Diagnostic` on error types).
 - Nix: `lib.withVersionFile` wrapper supplying build info at run time.
 - `examples/demo`, a CLI exercising every module.
-- MSRV 1.88.
+- MSRV per crate: Rust 1.88 for bpaf-kit; 1.85 for bpaf-kit-macros and
+  bpaf-kit-build.
 
-[Unreleased]: https://github.com/talaagent/bpaf-kit/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/talaagent/bpaf-kit/releases/tag/v0.1.0
