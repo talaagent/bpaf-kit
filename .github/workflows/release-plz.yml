@@ -117,11 +117,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
       # Bootstrap: brand-new crates cannot use trusted publishing yet, so this
       # path uses the short-lived CARGO_REGISTRY_TOKEN secret when it is set.
+      # It goes through `token`, which is dropped when empty, so without the
+      # secret this falls back to OIDC; an empty CARGO_REGISTRY_TOKEN env var
+      # would make cargo refuse to publish.
       - uses: release-plz/action@v0.5
         if: ${{ inputs.bootstrap }}
         with:
           command: release
           config: ${{ format('{0}/release-plz-manual.toml', runner.temp) }}
+          token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
