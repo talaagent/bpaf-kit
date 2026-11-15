@@ -38,8 +38,10 @@ version group, writes one root `CHANGELOG.md`, and has `bpaf-kit` own the
 `v<version>` tag and GitHub release. With `release_always = false`, only a
 merged release PR publishes. Review the version bump (cargo-semver-checks
 runs on the release PR) and the changelog, and merge only after CI passes.
-release-plz publishes in dependency order: bpaf-kit-macros and
-bpaf-kit-build, then bpaf-kit. The demo is never published.
+release-plz publishes in dependency order: bpaf-kit-build and
+bpaf-kit-macros, then bpaf-kit. Its order ignores dev-dependencies, so
+bpaf-kit's dev-dependency on bpaf-kit-build stays path-only (cargo strips
+it on publish). The demo is never published.
 
 The workflow runs only on the public `talaagent` repository.
 
