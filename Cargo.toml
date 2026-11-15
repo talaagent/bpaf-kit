@@ -8,8 +8,8 @@ edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0"
 repository = "https://github.com/talaagent/bpaf-kit"
+homepage = "https://github.com/talaagent/bpaf-kit"
 authors = ["Ian Macalinao <github@igm.pub>"]
-publish = false
 
 [workspace.dependencies]
 bpaf = "0.9.20"

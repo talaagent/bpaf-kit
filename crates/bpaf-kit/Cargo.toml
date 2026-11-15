@@ -1,17 +1,17 @@
 [package]
 name = "bpaf-kit"
-description = "Batteries for Rust CLIs built on bpaf: subprocess runner, Ctrl-C handling, build info, did-you-mean, tables, manpages, logging."
+description = "Batteries for Rust CLIs built on bpaf: #[derive(Cli)] startup, subprocesses, Ctrl-C, --version build info, did-you-mean, tables, manpages, logging"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
-publish.workspace = true
 readme = "README.md"
 documentation = "https://docs.rs/bpaf-kit"
-keywords = ["cli", "bpaf", "subprocess", "version", "manpage"]
-categories = ["command-line-interface"]
+keywords = ["bpaf", "cli", "command-line", "argument-parsing", "subprocess"]
+categories = ["command-line-interface", "development-tools"]
 
 [features]
 default = ["derive"]
