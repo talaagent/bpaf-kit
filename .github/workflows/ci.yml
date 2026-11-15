@@ -28,7 +28,10 @@ jobs:
         run: |
           nix develop -c cargo clippy -p bpaf-kit --no-default-features --all-targets -- -D warnings
           nix develop -c cargo test -p bpaf-kit --no-default-features
+          nix develop -c cargo clippy --workspace --all-features --all-targets -- -D warnings
           nix develop -c cargo test -p bpaf-kit --all-features
+      - name: doc
+        run: RUSTDOCFLAGS="-D warnings" nix develop -c cargo doc --no-deps --all-features
       - name: nix build
         run: nix build .#demo && ./result/bin/demo --version --verbose
 
