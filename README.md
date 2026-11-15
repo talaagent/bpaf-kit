@@ -121,6 +121,9 @@ let out = Cmd::new("make")
   echoes without running; `.dry_run(false)` exempts read-only commands.
 - Timeouts kill the child; a grandchild holding the pipes open can't hang
   the caller.
+- `.max_output(n)` keeps the first `n` bytes of each captured stream and
+  drains the rest, for children whose output you don't trust;
+  `Output::stdout_truncated` says whether it cut.
 - No extra thread unless both streams are piped (or there's a timeout).
 
 ### `interrupt`: Ctrl-C

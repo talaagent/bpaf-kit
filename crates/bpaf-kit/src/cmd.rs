@@ -97,6 +97,10 @@ pub struct Output {
     pub stderr: Vec<u8>,
     /// The command was only echoed, not run.
     pub dry_run: bool,
+    /// Stdout went past [`Cmd::max_output`]: `stdout` holds its first bytes.
+    pub stdout_truncated: bool,
+    /// Stderr went past [`Cmd::max_output`]: `stderr` holds its first bytes.
+    pub stderr_truncated: bool,
 }
 
 impl Output {
@@ -346,6 +350,7 @@ pub struct Cmd {
     echo: Option<bool>,
     dry_run: Option<bool>,
     timeout: Option<Duration>,
+    max_output: Option<usize>,
     check: bool,
 }
 
@@ -358,6 +363,7 @@ impl From<Command> for Cmd {
             echo: None,
             dry_run: None,
             timeout: None,
+            max_output: None,
             check: true,
         }
     }
@@ -464,6 +470,17 @@ impl Cmd {
         self
     }
 
+    /// Keep at most `bytes` of each captured stream. The rest is still read
+    /// (and still tee'd), so the child never blocks on a full pipe, but
+    /// dropped; [`Output::stdout_truncated`] and
+    /// [`Output::stderr_truncated`] say whether anything was. For children
+    /// whose output size isn't yours to trust; pair it with a
+    /// [`Cmd::timeout`].
+    pub fn max_output(&mut self, bytes: usize) -> &mut Self {
+        self.max_output = Some(bytes);
+        self
+    }
+
     /// Return a non-zero exit as an [`Output`] instead of [`Error::Exit`].
     pub fn allow_failure(&mut self) -> &mut Self {
         self.check = false;
@@ -567,6 +584,7 @@ impl Cmd {
             stderr: child.stderr.take(),
             tee_stdout: stdout == Redirect::Tee,
             tee_stderr: stderr == Redirect::Tee,
+            limit: self.max_output.unwrap_or(usize::MAX),
         };
 
         let io_err = |source| Error::Io {
@@ -581,7 +599,7 @@ impl Cmd {
                     return Err(Error::Timeout {
                         program: self.program(),
                         timeout,
-                        stderr_tail: tail(&stderr),
+                        stderr_tail: tail(&stderr.bytes),
                     });
                 }
             },
@@ -591,14 +609,16 @@ impl Cmd {
             return Err(Error::Exit {
                 program: self.program(),
                 status,
-                stderr_tail: tail(&stderr),
+                stderr_tail: tail(&stderr.bytes),
             });
         }
         Ok(Output {
             status,
-            stdout,
-            stderr,
+            stdout: stdout.bytes,
+            stderr: stderr.bytes,
             dry_run: false,
+            stdout_truncated: stdout.truncated,
+            stderr_truncated: stderr.truncated,
         })
     }
 }
@@ -608,48 +628,64 @@ struct Pipes {
     stderr: Option<ChildStderr>,
     tee_stdout: bool,
     tee_stderr: bool,
+    /// Bytes kept per stream.
+    limit: usize,
+}
+
+/// What was read from one stream.
+#[derive(Default)]
+struct Drained {
+    bytes: Vec<u8>,
+    truncated: bool,
 }
 
 enum Waited {
-    Exited(ExitStatus, Vec<u8>, Vec<u8>),
-    TimedOut(Vec<u8>),
+    Exited(ExitStatus, Drained, Drained),
+    TimedOut(Drained),
 }
 
-type Drain = JoinHandle<io::Result<Vec<u8>>>;
+type Drain = JoinHandle<io::Result<Drained>>;
 
 impl Pipes {
     /// Drain both pipes while the child runs (a full pipe would block it),
     /// using at most one extra thread.
-    fn wait(self, child: &mut Child) -> io::Result<(ExitStatus, Vec<u8>, Vec<u8>)> {
+    fn wait(self, child: &mut Child) -> io::Result<(ExitStatus, Drained, Drained)> {
+        let limit = self.limit;
         let (stdout, stderr) = match (self.stdout, self.stderr) {
             (Some(out), Some(err)) => {
                 let tee = self.tee_stderr;
-                let err = thread::spawn(move || drain(err, tee, Sink::Stderr));
-                let out = drain(out, self.tee_stdout, Sink::Stdout);
+                let err = thread::spawn(move || drain(err, tee, Sink::Stderr, limit));
+                let out = drain(out, self.tee_stdout, Sink::Stdout, limit);
                 (out?, join(err)?)
             }
-            (Some(out), None) => (drain(out, self.tee_stdout, Sink::Stdout)?, Vec::new()),
-            (None, Some(err)) => (Vec::new(), drain(err, self.tee_stderr, Sink::Stderr)?),
-            (None, None) => (Vec::new(), Vec::new()),
+            (Some(out), None) => (
+                drain(out, self.tee_stdout, Sink::Stdout, limit)?,
+                Drained::default(),
+            ),
+            (None, Some(err)) => (
+                Drained::default(),
+                drain(err, self.tee_stderr, Sink::Stderr, limit)?,
+            ),
+            (None, None) => (Drained::default(), Drained::default()),
         };
         Ok((child.wait()?, stdout, stderr))
     }
 
     fn wait_timeout(self, child: &mut Child, timeout: Duration) -> io::Result<Waited> {
         let deadline = Instant::now() + timeout;
-        let (tee_out, tee_err) = (self.tee_stdout, self.tee_stderr);
+        let (tee_out, tee_err, limit) = (self.tee_stdout, self.tee_stderr, self.limit);
         let out = self
             .stdout
-            .map(|p| thread::spawn(move || drain(p, tee_out, Sink::Stdout)));
+            .map(|p| thread::spawn(move || drain(p, tee_out, Sink::Stdout, limit)));
         let err = self
             .stderr
-            .map(|p| thread::spawn(move || drain(p, tee_err, Sink::Stderr)));
+            .map(|p| thread::spawn(move || drain(p, tee_err, Sink::Stderr, limit)));
 
         let mut nap = Duration::from_millis(1);
         loop {
             if let Some(status) = child.try_wait()? {
-                let stdout = out.map_or(Ok(Vec::new()), join)?;
-                let stderr = err.map_or(Ok(Vec::new()), join)?;
+                let stdout = out.map_or_else(|| Ok(Drained::default()), join)?;
+                let stderr = err.map_or_else(|| Ok(Drained::default()), join)?;
                 return Ok(Waited::Exited(status, stdout, stderr));
             }
             let now = Instant::now();
@@ -673,10 +709,10 @@ impl Pipes {
                 if handle.is_finished() {
                     join(handle).unwrap_or_default()
                 } else {
-                    Vec::new()
+                    Drained::default()
                 }
             }
-            None => Vec::new(),
+            None => Drained::default(),
         };
         Ok(Waited::TimedOut(stderr))
     }
@@ -688,17 +724,20 @@ enum Sink {
     Stderr,
 }
 
-fn drain(mut src: impl Read, mut tee: bool, sink: Sink) -> io::Result<Vec<u8>> {
-    let mut buf = Vec::new();
+/// Reads `src` to its end, keeping its first `limit` bytes.
+fn drain(mut src: impl Read, mut tee: bool, sink: Sink, limit: usize) -> io::Result<Drained> {
+    let mut out = Drained::default();
     let mut chunk = [0u8; 8192];
     loop {
         let n = match src.read(&mut chunk) {
-            Ok(0) => return Ok(buf),
+            Ok(0) => return Ok(out),
             Ok(n) => n,
             Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
             Err(e) => return Err(e),
         };
-        buf.extend_from_slice(&chunk[..n]);
+        let keep = n.min(limit - out.bytes.len());
+        out.bytes.extend_from_slice(&chunk[..keep]);
+        out.truncated |= keep < n;
         // Stop forwarding if the parent's stream is gone, but keep draining so
         // the child never blocks on a full pipe.
         if tee {
@@ -714,7 +753,7 @@ fn drain(mut src: impl Read, mut tee: bool, sink: Sink) -> io::Result<Vec<u8>> {
     }
 }
 
-fn join(handle: Drain) -> io::Result<Vec<u8>> {
+fn join(handle: Drain) -> io::Result<Drained> {
     handle
         .join()
         .unwrap_or_else(|_| Err(io::Error::other("output reader thread panicked")))
@@ -946,6 +985,28 @@ mod tests {
         assert!(start.elapsed() < Duration::from_secs(3));
         assert_eq!(err.code(), "cmd_timeout");
         assert_eq!(err.stderr_tail(), Some("started"));
+    }
+
+    #[test]
+    fn max_output_keeps_the_first_bytes_and_drains_the_rest() {
+        // 200 KiB on each stream: more than a pipe holds, so a child left
+        // blocked on a full pipe would hang the test.
+        let out = sh("head -c 204800 /dev/zero; head -c 204800 /dev/zero >&2; printf done")
+            .max_output(10)
+            .output()
+            .unwrap();
+        assert_eq!(out.stdout, vec![0u8; 10]);
+        assert_eq!(out.stderr.len(), 10);
+        assert!(out.stdout_truncated && out.stderr_truncated);
+        let out = sh("printf ok")
+            .max_output(2)
+            .timeout(Duration::from_secs(10))
+            .output()
+            .unwrap();
+        assert_eq!(
+            (out.stdout.as_slice(), out.stdout_truncated),
+            (&b"ok"[..], false)
+        );
     }
 
     #[test]
