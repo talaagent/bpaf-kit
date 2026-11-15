@@ -37,7 +37,7 @@ dependencies = [
 
 [[package]]
 name = "bpaf-kit"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bpaf",
  "bpaf-kit-build",
@@ -55,11 +55,11 @@ dependencies = [
 
 [[package]]
 name = "bpaf-kit-build"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "bpaf-kit-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -148,7 +148,7 @@ dependencies = [
 
 [[package]]
 name = "demo"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bpaf",
  "bpaf-kit",

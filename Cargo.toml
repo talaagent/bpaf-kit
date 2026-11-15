@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "examples/*"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 # The default MSRV, edition 2024's floor: bpaf-kit-macros and
 # bpaf-kit-build. bpaf-kit (and the demo) override it with 1.88 (let
@@ -28,9 +28,9 @@ syn = { version = "2", default-features = false, features = ["derive", "parsing"
 thiserror = "2"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt", "env-filter", "ansi"] }
-bpaf-kit = { version = "0.1.0", path = "crates/bpaf-kit" }
-bpaf-kit-build = { version = "0.1.0", path = "crates/bpaf-kit-build" }
-bpaf-kit-macros = { version = "0.1.0", path = "crates/bpaf-kit-macros" }
+bpaf-kit = { version = "0.2.0", path = "crates/bpaf-kit" }
+bpaf-kit-build = { version = "0.2.0", path = "crates/bpaf-kit-build" }
+bpaf-kit-macros = { version = "0.2.0", path = "crates/bpaf-kit-macros" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
