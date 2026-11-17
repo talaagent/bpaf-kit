@@ -68,6 +68,11 @@ fn main() {
 }
 ```
 
+For a cargo subcommand (`#[bpaf(options("foo"))]` on a `cargo-foo`
+binary), `cargo foo --version` and `cargo foo --man` work too: cargo runs
+`cargo-foo foo --version`, and the derive skips the `foo` first
+(`App::cargo_subcommand` without the derive).
+
 The derive's `#[cfg(test)]` test means a badly-shaped parser fails
 `cargo test` instead of the first user. Without the derive, the same
 startup is `bpaf_kit::App::new(parser, bpaf_kit::build_info!()).run()`.
@@ -262,6 +267,8 @@ whether stdout is a terminal. `comfy_table` is re-exported.
 
 `tool --man` prints a roff manpage rendered from the bpaf parser
 (`man::render` to do it yourself): `tool --man > share/man/man1/tool.1`.
+With subcommands it has one NAME and one SYNOPSIS (a line per command),
+the top-level options under DESCRIPTION, and a section per subcommand.
 
 ### `log` (feature `log`, `log-json`)
 

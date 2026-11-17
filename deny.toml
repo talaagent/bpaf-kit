@@ -40,6 +40,9 @@ ignore = false
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# bpaf-kit's path-only dev-dependency on bpaf-kit-build (cargo strips it
+# on publish; see its Cargo.toml).
+allow-wildcard-paths = true
 highlight = "all"
 deny = []
 skip = []
