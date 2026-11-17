@@ -129,6 +129,9 @@ let out = Cmd::new("make")
 - `.max_output(n)` keeps the first `n` bytes of each captured stream and
   drains the rest, for children whose output you don't trust;
   `Output::stdout_truncated` says whether it cut.
+- `.echo_width(n)` shortens a long echoed line to about `n` characters
+  (environment collapsed to `…`, middle arguments to `…(N more)`), and
+  `.echo_label("…")` echoes a description instead of the command line.
 - No extra thread unless both streams are piped (or there's a timeout).
 
 ### `interrupt`: Ctrl-C
@@ -261,7 +264,17 @@ format: OutputFormat,
 
 `table::new(headers)`: thin box borders, wraps to the terminal.
 `table::plain(headers)`: no borders, for pipes. `table::auto` picks by
-whether stdout is a terminal. `comfy_table` is re-exported.
+whether stdout is a terminal. `table::compact(headers)`: no borders, two
+spaces between columns, numbers right-aligned, no trailing whitespace, for
+reports. `comfy_table` is re-exported.
+
+```rust
+# #[cfg(feature = "table")] {
+let mut t = bpaf_kit::table::compact(["took", "crate"]);
+t.add_row(["1.2s", "serde"]).add_row(["10.4s", "syn"]);
+assert_eq!(t.to_string(), "took   crate\n 1.2s  serde\n10.4s  syn");
+# }
+```
 
 ### `man` (feature `man`)
 

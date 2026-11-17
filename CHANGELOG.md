@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `table::compact(headers)`: a borderless table with two spaces between
+  columns, cells starting with a digit right-aligned (except in the last
+  column) and no trailing whitespace
+  ([#6](https://github.com/talaagent/bpaf-kit/issues/6)).
+- `Cmd::echo_width(n)` shortens the echoed command line (environment to
+  `…`, middle arguments to `…(N more)`), and `Cmd::echo_label(label)`
+  echoes a description instead
+  ([#9](https://github.com/talaagent/bpaf-kit/issues/9)).
+
 - `App::cargo_subcommand(name)`: `cargo-foo foo --man` and
   `cargo-foo foo --version [--verbose]` (how `cargo foo --version` runs
   it) are answered too. `#[derive(Cli)]` sets it from
