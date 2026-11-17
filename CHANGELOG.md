@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `App::cargo_subcommand(name)`: `cargo-foo foo --man` and
+  `cargo-foo foo --version [--verbose]` (how `cargo foo --version` runs
+  it) are answered too. `#[derive(Cli)]` sets it from
+  `#[bpaf(options("foo"))]` ([#4](https://github.com/talaagent/bpaf-kit/issues/4)).
+
+### Fixed
+
+- `man`: pages for parsers with subcommands no longer have a stray
+  `.SH <NAME>\ ` section and a second SYNOPSIS. They read NAME, SYNOPSIS,
+  DESCRIPTION (the top-level options), then a section per subcommand
+  ([#8](https://github.com/talaagent/bpaf-kit/issues/8)).
+
 ## [0.2.0](https://github.com/talaagent/bpaf-kit/compare/v0.1.0...v0.2.0) - 2026-11-15
 
 ### Added
