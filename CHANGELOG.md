@@ -17,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `…`, middle arguments to `…(N more)`), and `Cmd::echo_label(label)`
   echoes a description instead
   ([#9](https://github.com/talaagent/bpaf-kit/issues/9)).
-
 - `App::cargo_subcommand(name)`: `cargo-foo foo --man` and
   `cargo-foo foo --version [--verbose]` (how `cargo foo --version` runs
   it) are answered too. `#[derive(Cli)]` sets it from
