@@ -150,7 +150,7 @@ fn plain_table_when_piped() {
 #[cfg(unix)]
 #[test]
 fn ctrl_c_exits_130() {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_demo"))
+    let child = Command::new(env!("CARGO_BIN_EXE_demo"))
         .args(["--no-echo", "exec", "--", "sleep", "5"])
         // `sleep` outlives demo; don't let it hold the test's stdout.
         .stdout(Stdio::null())

@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cargo-foo foo --version [--verbose]` (how `cargo foo --version` runs
   it) are answered too. `#[derive(Cli)]` sets it from
   `#[bpaf(options("foo"))]` ([#4](https://github.com/talaagent/bpaf-kit/issues/4)).
+- `interrupt::on_interrupt(f)`: cleanups that run once each, newest
+  first, before the Ctrl-C exit 130, while the returned `Cleanup` guard is
+  alive; a panicking cleanup doesn't stop the rest
+  ([#5](https://github.com/talaagent/bpaf-kit/issues/5)).
+- `report`: the `Coded` trait (`code`, `exit_code`) and
+  `report`/`report_as`/`render`, printing `<bin>: error[<code>]: <message>`
+  and the source chain. bpaf-kit's errors implement `Coded`
+  ([#7](https://github.com/talaagent/bpaf-kit/issues/7)).
 
 ### Fixed
 

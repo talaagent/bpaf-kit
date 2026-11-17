@@ -24,9 +24,10 @@
 //! ```
 
 use alloc::boxed::Box;
+use core::panic::AssertUnwindSafe;
 use core::sync::atomic::{AtomicU64, Ordering};
 use std::io::{self, IsTerminal, Write};
-use std::panic::{self, AssertUnwindSafe};
+use std::panic;
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 
 /// Exit status after Ctrl-C (128 + SIGINT).
@@ -172,7 +173,7 @@ mod tests {
     // The only test touching the registry: tests share the process.
     #[test]
     fn cleanups_run_once_newest_first_past_panics() {
-        use std::sync::Arc;
+        use alloc::sync::Arc;
         let log = Arc::new(Mutex::new(Vec::new()));
         let push = |name: &'static str| {
             let log = Arc::clone(&log);

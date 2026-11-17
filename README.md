@@ -29,6 +29,8 @@ bpaf-kit-build = "0.1"
 - `version`: git rev, dirty flag, build date and target baked in by
   `bpaf-kit-build`, which a Nix wrapper can supply at run time instead.
 - `suggest`: "did you mean …?" for enum-like arguments.
+- `interrupt` and `report`: cleanups that run on Ctrl-C, and
+  `tool: error[code]: …` error reports with exit codes.
 - Optional: tables (comfy-table), manpages, tracing logs, dialoguer prompts,
   and miette diagnostics with the same stable error codes.
 
@@ -136,6 +138,62 @@ let out = Cmd::new("make")
 `interrupt::install()` (idempotent) shows the cursor again and exits 130 on
 Ctrl-C, so interrupting a dialoguer prompt doesn't leave the terminal
 without a cursor. `cli()` and the `prompt` helpers install it for you.
+
+`interrupt::on_interrupt(f)` registers a cleanup (remove a temp dir, kill
+a child's process group) that runs before the exit 130, while the returned
+guard is alive. Cleanups run once each, newest first, on the handler's
+thread, and one that panics doesn't stop the rest.
+
+```rust
+# fn main() -> std::io::Result<()> {
+let dir = std::env::temp_dir().join(format!("my-tool-{}", std::process::id()));
+std::fs::create_dir_all(&dir)?;
+let cleanup = bpaf_kit::interrupt::on_interrupt({
+    let dir = dir.clone();
+    move || drop(std::fs::remove_dir_all(dir))
+});
+// ... work in `dir` ...
+std::fs::remove_dir_all(&dir)?;
+drop(cleanup); // unregisters it
+# Ok(()) }
+```
+
+### `report`: printing errors
+
+Implement `report::Coded` (a stable `code()`, and `exit_code()`, 1 by
+default) on your error type, and `report::report(&err)` prints
+`<bin>: error[<code>]: <message>` plus a `  caused by:` line for each
+source the message doesn't already show, and returns the `ExitCode`.
+`report_as("cargo foo", &err)` picks the name. bpaf-kit's own errors
+implement `Coded`.
+
+```rust
+use bpaf_kit::report::{self, Coded};
+use std::process::ExitCode;
+
+#[derive(Debug, thiserror::Error)]
+enum Error {
+    #[error(transparent)]
+    Cmd(#[from] bpaf_kit::cmd::Error),
+}
+
+impl Coded for Error {
+    fn code(&self) -> &str {
+        match self {
+            Self::Cmd(e) => e.code(),
+        }
+    }
+}
+
+fn run() -> Result<(), Error> {
+    bpaf_kit::cmd::Cmd::new("true").run()?;
+    Ok(())
+}
+
+fn main() -> ExitCode {
+    run().map_or_else(|e| report::report(&e), |()| ExitCode::SUCCESS)
+}
+```
 
 ### `version`: build info
 
@@ -296,7 +354,7 @@ on dialoguer, each installing the Ctrl-C handler first.
 | `prompt`   |         | `prompt`, dialoguer                               |
 | `miette`   |         | `miette::Diagnostic` on error types (same codes)  |
 
-The core (`cmd`, `interrupt`, `version`, `suggest`) depends on bpaf, ctrlc,
+The core (`cmd`, `interrupt`, `report`, `version`, `suggest`) depends on bpaf, ctrlc,
 strsim and thiserror only.
 
 ## MSRV

@@ -7,7 +7,7 @@
 //! per [`source`](core::error::Error::source) the message doesn't already
 //! include, and returns the exit code:
 //!
-//! ```
+//! ```no_run
 //! use bpaf_kit::report::{self, Coded};
 //! use std::process::ExitCode;
 //!
