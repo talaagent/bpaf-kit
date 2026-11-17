@@ -14,6 +14,7 @@ pub mod log;
 pub mod man;
 #[cfg(feature = "prompt")]
 pub mod prompt;
+pub mod report;
 pub mod suggest;
 #[cfg(feature = "table")]
 pub mod table;
