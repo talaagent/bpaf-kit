@@ -27,7 +27,8 @@
 //! command with [`Cmd::echo`], process-wide with [`set_echo`], or from the
 //! environment with `BPAF_KIT_ECHO=0`. Dry-run mode ([`set_dry_run`],
 //! `BPAF_KIT_DRY_RUN=1`, or [`Cmd::dry_run`]) echoes commands without running
-//! them.
+//! them. A long command line can be shortened with [`Cmd::echo_width`], or
+//! replaced by a description with [`Cmd::echo_label`].
 //!
 //! A non-zero exit is an [`Error::Exit`] carrying the last few KiB of the
 //! child's stderr whenever stderr was captured or tee'd; use
@@ -348,6 +349,8 @@ pub struct Cmd {
     stdout: Option<Redirect>,
     stderr: Option<Redirect>,
     echo: Option<bool>,
+    echo_label: Option<String>,
+    echo_width: Option<usize>,
     dry_run: Option<bool>,
     timeout: Option<Duration>,
     max_output: Option<usize>,
@@ -361,6 +364,8 @@ impl From<Command> for Cmd {
             stdout: None,
             stderr: None,
             echo: None,
+            echo_label: None,
+            echo_width: None,
             dry_run: None,
             timeout: None,
             max_output: None,
@@ -456,6 +461,37 @@ impl Cmd {
         self
     }
 
+    /// Echo `+ label` instead of the command line, for commands whose line
+    /// says less than a description would (a replayed `rustc` call with
+    /// hundreds of arguments, say). Dry-run mode echoes the label too.
+    pub fn echo_label(&mut self, label: impl Into<String>) -> &mut Self {
+        self.echo_label = Some(label.into());
+        self
+    }
+
+    /// Shorten the echoed command line (and [`Cmd::display`]) to about
+    /// `chars` characters. The `cd DIR &&` prefix and the program are always
+    /// shown. Environment variables go first, collapsed to `…`, then
+    /// arguments from the middle, replaced by `…(N more)`, keeping as
+    /// many from the start and the end as fit. A line within `chars` is
+    /// shown as is.
+    ///
+    /// ```
+    /// let mut cmd = bpaf_kit::cmd::Cmd::new("rustc");
+    /// cmd.args(["--crate-name", "foo", "--edition=2024", "src/lib.rs"])
+    ///     .args((0..50).map(|i| format!("-Cmetadata={i}")))
+    ///     .args(["--out-dir", "target/debug/deps"])
+    ///     .echo_width(60);
+    /// assert_eq!(
+    ///     cmd.display().to_string(),
+    ///     "rustc --crate-name foo …(53 more) target/debug/deps",
+    /// );
+    /// ```
+    pub fn echo_width(&mut self, chars: usize) -> &mut Self {
+        self.echo_width = Some(chars);
+        self
+    }
+
     /// Only echo this command, don't run it (overrides [`set_dry_run`]).
     /// Use `dry_run(false)` for read-only commands whose output the program
     /// needs even in dry-run mode.
@@ -500,10 +536,21 @@ impl Cmd {
     }
 
     /// The command line as it is echoed: `cd DIR && K=V program args…`, with
-    /// shell quoting where needed. For people, not for feeding to a shell.
+    /// shell quoting where needed, shortened to [`Cmd::echo_width`] if set.
+    /// For people, not for feeding to a shell.
     #[must_use]
     pub fn display(&self) -> CommandLine<'_> {
-        CommandLine(&self.command)
+        CommandLine {
+            command: &self.command,
+            width: self.echo_width,
+        }
+    }
+
+    /// What is echoed: the label, or the command line.
+    fn echo_text(&self) -> String {
+        self.echo_label
+            .clone()
+            .unwrap_or_else(|| self.display().to_string())
     }
 
     /// Run with stdout and stderr going to the terminal unless redirected.
@@ -564,7 +611,7 @@ impl Cmd {
 
         let dry_run = self.dry_run.unwrap_or_else(dry_run_enabled);
         if dry_run || self.echo.unwrap_or_else(echo_enabled) {
-            echo_line(self.display());
+            echo_line(self.echo_text());
         }
         if dry_run {
             return Ok(Output {
@@ -773,34 +820,100 @@ fn tail(stderr: &[u8]) -> String {
 }
 
 /// Display form of a command line; see [`Cmd::display`].
-pub struct CommandLine<'a>(&'a Command);
+pub struct CommandLine<'a> {
+    command: &'a Command,
+    width: Option<usize>,
+}
 
 impl fmt::Display for CommandLine<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let cmd = self.0;
+        let cmd = self.command;
+        let quoted = |s: &OsStr| {
+            let mut out = String::new();
+            let _ = quote(&mut out, &s.to_string_lossy());
+            out
+        };
         if let Some(dir) = cmd.get_current_dir() {
-            f.write_str("cd ")?;
-            quote(f, &dir.as_os_str().to_string_lossy())?;
-            f.write_str(" && ")?;
+            write!(f, "cd {} && ", quoted(dir.as_os_str()))?;
         }
-        for (key, value) in cmd.get_envs() {
-            if let Some(value) = value {
-                quote(f, &key.to_string_lossy())?;
-                f.write_str("=")?;
-                quote(f, &value.to_string_lossy())?;
-                f.write_str(" ")?;
+        let envs: Vec<String> = cmd
+            .get_envs()
+            .filter_map(|(key, value)| Some(format!("{}={}", quoted(key), quoted(value?))))
+            .collect();
+        let program = quoted(cmd.get_program());
+        let args: Vec<String> = cmd.get_args().map(quoted).collect();
+        let Some(width) = self.width else {
+            return write_words(f, &envs, &program, &args);
+        };
+        // Lengths in chars, each with its separating space.
+        let len = |words: &[String]| -> usize { words.iter().map(|w| w.chars().count() + 1).sum() };
+        let fixed = cmd.get_current_dir().map_or(0, |dir| {
+            quoted(dir.as_os_str()).chars().count() + "cd  && ".len()
+        }) + program.chars().count();
+        if fixed + len(&envs) + len(&args) <= width {
+            return write_words(f, &envs, &program, &args);
+        }
+        let envs = if envs.is_empty() {
+            envs
+        } else {
+            vec![String::from("…")]
+        };
+        let envs = envs.as_slice();
+        let room = width.saturating_sub(fixed + len(envs));
+        if len(&args) <= room {
+            return write_words(f, envs, &program, &args);
+        }
+        // Take arguments from the front and the back in turn while they
+        // fit next to the `…(N more)` marker.
+        let (mut head, mut tail, mut used) = (0, 0, 0);
+        loop {
+            let marker = format!("…({} more)", args.len() - head - tail)
+                .chars()
+                .count()
+                + 1;
+            let next = if head <= tail {
+                head
+            } else {
+                args.len() - 1 - tail
+            };
+            let cost = args[next].chars().count() + 1;
+            if head + tail == args.len() || used + cost + marker > room {
+                break;
+            }
+            used += cost;
+            if head <= tail {
+                head += 1;
+            } else {
+                tail += 1;
             }
         }
-        quote(f, &cmd.get_program().to_string_lossy())?;
-        for arg in cmd.get_args() {
-            f.write_str(" ")?;
-            quote(f, &arg.to_string_lossy())?;
+        write_words(f, envs, &program, &args[..head])?;
+        write!(f, " …({} more)", args.len() - head - tail)?;
+        for arg in &args[args.len() - tail..] {
+            write!(f, " {arg}")?;
         }
         Ok(())
     }
 }
 
-fn quote(f: &mut fmt::Formatter<'_>, s: &str) -> fmt::Result {
+/// `envs… program args…`.
+fn write_words(
+    f: &mut fmt::Formatter<'_>,
+    envs: &[String],
+    program: &str,
+    args: &[String],
+) -> fmt::Result {
+    for env in envs {
+        write!(f, "{env} ")?;
+    }
+    f.write_str(program)?;
+    for arg in args {
+        write!(f, " {arg}")?;
+    }
+    Ok(())
+}
+
+fn quote(f: &mut impl fmt::Write, s: &str) -> fmt::Result {
     let safe = !s.is_empty()
         && s.bytes().all(|b| {
             b.is_ascii_alphanumeric()
@@ -853,6 +966,54 @@ mod tests {
             cmd.display().to_string(),
             "cd '/srv/my app' && DATABASE_URL='postgres://u@h/db?x=1' migrate up"
         );
+    }
+
+    #[test]
+    fn echo_width_keeps_short_lines() {
+        let mut cmd = Cmd::new("ls");
+        cmd.env("A", "1").arg("-l").echo_width(12);
+        assert_eq!(cmd.display().to_string(), "A=1 ls -l");
+    }
+
+    #[test]
+    fn echo_width_collapses_envs_then_middle_args() {
+        let mut cmd = Cmd::new("rustc");
+        cmd.current_dir("/w")
+            .env("CARGO_PKG_NAME", "foo")
+            .env("CARGO_PKG_VERSION", "1.0.0")
+            .args(["--crate-name", "foo", "src/lib.rs"]);
+        let line = |cmd: &mut Cmd, width| cmd.echo_width(width).display().to_string();
+        assert_eq!(
+            line(&mut cmd, 44),
+            "cd /w && … rustc --crate-name foo src/lib.rs"
+        );
+        assert_eq!(
+            line(&mut cmd, 43),
+            "cd /w && … rustc --crate-name …(2 more)"
+        );
+        // The program and the directory stay, however narrow.
+        assert_eq!(line(&mut cmd, 5), "cd /w && … rustc …(3 more)");
+        for width in 0..80 {
+            let shown = line(&mut cmd, width);
+            assert!(
+                shown.chars().count() <= width.max("cd /w && … rustc …(3 more)".chars().count()),
+                "{width}: {shown}"
+            );
+        }
+    }
+
+    #[test]
+    fn echo_label_replaces_the_line_in_dry_run() {
+        let out = Cmd::new("rm")
+            .args(["-rf", "/"])
+            .echo_label("cleaning up")
+            .dry_run(true)
+            .run()
+            .unwrap();
+        assert!(out.dry_run);
+        let mut cmd = Cmd::new("rm");
+        assert_eq!(cmd.arg("x").echo_text(), "rm x");
+        assert_eq!(cmd.echo_label("cleaning up").echo_text(), "cleaning up");
     }
 
     #[test]
