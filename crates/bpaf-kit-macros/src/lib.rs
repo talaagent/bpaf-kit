@@ -3,7 +3,10 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
-use syn::{Data, DeriveInput, Expr, ExprLit, Ident, Lit, LitStr, parse_macro_input};
+use syn::punctuated::Punctuated;
+use syn::{
+    Attribute, Data, DeriveInput, Expr, ExprLit, Ident, Lit, LitStr, Meta, Token, parse_macro_input,
+};
 
 /// Adds `parser()` and `cli()` to a `#[bpaf(options)]` type, plus a test
 /// that runs bpaf's `check_invariants` on the parser.
@@ -31,6 +34,10 @@ use syn::{Data, DeriveInput, Expr, ExprLit, Ident, Lit, LitStr, parse_macro_inpu
 /// - `fn cli() -> Self`: `bpaf_kit::App::run` on it: Ctrl-C handler,
 ///   `--man`, `--version [--verbose]`, parse, logging init.
 /// - `#[cfg(test)] mod __<type>_cli`: a `parser_invariants` test.
+///
+/// A cargo subcommand, `#[bpaf(options("name"))]`, also answers
+/// `cargo-name name --man` and `cargo-name name --version`, the way
+/// `cargo name --man` runs it (`App::cargo_subcommand`).
 ///
 /// Container attributes, `#[cli(...)]`:
 ///
@@ -93,6 +100,7 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
         })?;
     }
 
+    let cargo = cargo_subcommand(&input.attrs).map(|name| quote!(.cargo_subcommand(#name)));
     let log_args = find_log_args(input)?;
     let log_setting = match &log {
         Log::Default => quote!(),
@@ -115,7 +123,7 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
             }
 
             fn __bpaf_kit_app() -> ::bpaf_kit::App<Self> {
-                ::bpaf_kit::App::new(#parser_fn(), ::bpaf_kit::build_info!()) #log_setting
+                ::bpaf_kit::App::new(#parser_fn(), ::bpaf_kit::build_info!()) #cargo #log_setting
             }
 
             /// Install the Ctrl-C handler, answer `--man` and `--version`,
@@ -166,6 +174,23 @@ fn find_log_args(input: &DeriveInput) -> syn::Result<Option<TokenStream2>> {
     Ok(found)
 }
 
+/// The `name` of `#[bpaf(options("name"))]`: bpaf then wraps the parser in
+/// `cargo_helper("name", …)`. Attributes this can't read are left to bpaf.
+fn cargo_subcommand(attrs: &[Attribute]) -> Option<LitStr> {
+    attrs
+        .iter()
+        .filter(|a| a.path().is_ident("bpaf"))
+        .filter_map(|a| {
+            a.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+                .ok()
+        })
+        .flatten()
+        .find_map(|meta| match meta {
+            Meta::List(list) if list.path.is_ident("options") => list.parse_args::<LitStr>().ok(),
+            _ => None,
+        })
+}
+
 /// The parser function name bpaf's derive generates: every ASCII uppercase
 /// letter starts a new `_`-separated word (`HTTPOpts` → `h_t_t_p_opts`).
 fn snake_case(name: &str) -> String {
@@ -212,6 +237,24 @@ mod tests {
         assert!(out.contains("run_with_log_args"), "{out}");
         assert!(out.contains("\"info\""), "{out}");
         assert!(out.contains("mod __my_opts_cli"), "{out}");
+    }
+
+    #[test]
+    fn cargo_subcommand_from_bpaf_options() {
+        let input: DeriveInput = syn::parse_quote! {
+            #[bpaf(options("faster"), header("x"), generate(faster_opts))]
+            #[cli(parser = faster_opts)]
+            struct Opts;
+        };
+        let out = expand(&input).unwrap().to_string();
+        assert!(out.contains(". cargo_subcommand (\"faster\")"), "{out}");
+
+        let input: DeriveInput = syn::parse_quote! {
+            #[bpaf(options, version)]
+            struct Opts;
+        };
+        let out = expand(&input).unwrap().to_string();
+        assert!(!out.contains("cargo_subcommand"), "{out}");
     }
 
     #[test]

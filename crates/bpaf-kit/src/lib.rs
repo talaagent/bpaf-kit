@@ -50,13 +50,17 @@ pub fn color_enabled(stream: &impl IsTerminal) -> bool {
 /// 1. installs the [`interrupt`] handler (ignoring a foreign one);
 /// 2. answers `--man` with the manpage (feature `man`);
 /// 3. answers `--version` / `--version --verbose` from [`BuildInfo`], with
-///    the runtime override file applied;
+///    the runtime override file applied. For a cargo subcommand
+///    ([`App::cargo_subcommand`]), `--man` and `--version` may also follow
+///    the subcommand name, as in `cargo-foo foo --version`, which is how
+///    `cargo foo --version` runs it;
 /// 4. parses the command line (bpaf prints errors and help and exits);
 /// 5. initializes logging (feature `log`), unless turned off.
 pub struct App<T> {
     parser: OptionParser<T>,
     info: BuildInfo,
     log: Option<&'static str>,
+    cargo: Option<&'static str>,
 }
 
 impl<T> App<T> {
@@ -68,7 +72,20 @@ impl<T> App<T> {
             parser: parser.version(short.as_str()),
             info,
             log: Some("warn"),
+            cargo: None,
         }
+    }
+
+    /// The program is the cargo subcommand `name` (`cargo-<name>`, run by
+    /// cargo as `cargo-<name> <name> …`): a leading `name` argument is
+    /// skipped before looking for `--man` and `--version`. The parser
+    /// must skip it too, as bpaf's [`bpaf::cargo_helper`] (and
+    /// `#[bpaf(options("name"))]`) does; `#[derive(Cli)]` sets this from
+    /// that attribute.
+    #[must_use]
+    pub fn cargo_subcommand(mut self, name: &'static str) -> Self {
+        self.cargo = Some(name);
+        self
     }
 
     /// The default log filter (`"warn"` unless set), or `None` to leave
@@ -130,7 +147,7 @@ impl<T> App<T> {
 
     fn before_parse(&self) {
         let _ = interrupt::install();
-        let args: Vec<OsString> = std::env::args_os().skip(1).take(3).collect();
+        let args = meta_args(std::env::args_os().skip(1), self.cargo);
         #[cfg(feature = "man")]
         if args.len() == 1 && args[0] == man::FLAG {
             exit_with(&man::render(&self.parser, &self.info));
@@ -143,6 +160,19 @@ impl<T> App<T> {
             exit_with(&format!("{} {}\n", info.name, info.short()));
         }
     }
+}
+
+/// The first few arguments, enough to spot `--man` and `--version
+/// --verbose` and to tell them from longer command lines, after a leading
+/// cargo subcommand name.
+fn meta_args(args: impl Iterator<Item = OsString>, cargo: Option<&str>) -> Vec<OsString> {
+    let mut args = args.take(4).peekable();
+    if let Some(name) = cargo
+        && args.next_if(|a| a == name).is_some()
+    {
+        return args.collect();
+    }
+    args.take(3).collect()
 }
 
 #[cfg(feature = "log")]
@@ -160,4 +190,29 @@ fn exit_with(text: &str) -> ! {
             .is_err(),
     );
     std::process::exit(code)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn meta(args: &[&str], cargo: Option<&str>) -> Vec<OsString> {
+        meta_args(args.iter().map(OsString::from), cargo)
+    }
+
+    #[test]
+    fn meta_args_skip_the_cargo_subcommand_name() {
+        assert_eq!(meta(&["foo", "--man"], Some("foo")), ["--man"]);
+        assert_eq!(
+            meta(&["foo", "--version", "--verbose"], Some("foo")),
+            ["--version", "--verbose"]
+        );
+        assert_eq!(meta(&["--man"], Some("foo")), ["--man"]);
+        // Without the setting, `foo` is just an argument.
+        assert_eq!(meta(&["foo", "--man"], None), ["foo", "--man"]);
+        // Long command lines stay too long to be a meta request.
+        assert_eq!(meta(&["foo", "a", "b", "c", "d"], Some("foo")).len(), 3);
+        assert_eq!(meta(&["a", "b", "c", "d"], Some("foo")).len(), 3);
+        assert!(version::version_request(meta(&["foo", "-V"], Some("foo"))).is_some());
+    }
 }
