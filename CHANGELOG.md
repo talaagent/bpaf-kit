@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/talaagent/bpaf-kit/compare/v0.2.0...v0.2.1) - 2026-11-17
+
+### Other
+
+- :compact and shorter command echoes ([#13](https://github.com/talaagent/bpaf-kit/pull/13))
+- Ctrl-C cleanup hooks and coded error reports ([#12](https://github.com/talaagent/bpaf-kit/pull/12))
+- Cargo subcommand meta flags and a tidier man page ([#10](https://github.com/talaagent/bpaf-kit/pull/10))
+
 ### Added
 
 - `table::compact(headers)`: a borderless table with two spaces between
