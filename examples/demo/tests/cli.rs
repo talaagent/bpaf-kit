@@ -1,7 +1,7 @@
 //! End-to-end tests of the demo binary: everything `#[derive(Cli)]` wires up.
 
 use core::time::Duration;
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use std::time::Instant;
 
 fn demo(args: &[&str]) -> Output {
@@ -109,7 +109,7 @@ fn capture_reports_stderr_tail_with_code() {
     assert_eq!(out.status.code(), Some(1));
     let s = text(&out.stderr);
     assert!(
-        s.ends_with("error[cmd_exit]: `sh` failed (exit status: 4):\nnope\n"),
+        s.ends_with("demo: error[cmd_exit]: `sh` failed (exit status: 4):\nnope\n"),
         "{s}"
     );
 }
@@ -150,8 +150,11 @@ fn plain_table_when_piped() {
 #[cfg(unix)]
 #[test]
 fn ctrl_c_exits_130() {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_demo"))
+    let child = Command::new(env!("CARGO_BIN_EXE_demo"))
         .args(["--no-echo", "exec", "--", "sleep", "5"])
+        // `sleep` outlives demo; don't let it hold the test's stdout.
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .unwrap();
     // Give it time to install the handler and start the child.
@@ -162,7 +165,9 @@ fn ctrl_c_exits_130() {
         .status()
         .unwrap();
     assert!(killed.success());
-    let status = child.wait().unwrap();
-    assert_eq!(status.code(), Some(130));
+    let out = child.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(130));
     assert!(start.elapsed() < Duration::from_secs(3));
+    // The cleanup registered with `interrupt::on_interrupt` ran.
+    assert_eq!(text(&out.stderr), "demo: interrupted, cleaning up\n");
 }
