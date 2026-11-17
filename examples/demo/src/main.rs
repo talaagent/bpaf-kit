@@ -15,7 +15,9 @@ use std::process::ExitCode;
 
 use bpaf::Bpaf;
 use bpaf_kit::cmd::{self, Cmd, Redirect};
+use bpaf_kit::interrupt;
 use bpaf_kit::log::LogArgs;
+use bpaf_kit::report::{self, Coded};
 use bpaf_kit::{Cli, suggest, table};
 
 /// Example CLI for bpaf-kit
@@ -87,10 +89,7 @@ fn main() -> ExitCode {
     }
     match run(opts.command) {
         Ok(()) => ExitCode::SUCCESS,
-        Err(err) => {
-            eprintln!("error[{}]: {err}", err.code());
-            ExitCode::FAILURE
-        }
+        Err(err) => report::report(&err),
     }
 }
 
@@ -102,8 +101,8 @@ enum Error {
     Prompt(#[from] bpaf_kit::prompt::dialoguer::Error),
 }
 
-impl Error {
-    fn code(&self) -> &'static str {
+impl Coded for Error {
+    fn code(&self) -> &str {
         match self {
             Self::Cmd(e) => e.code(),
             Self::Prompt(_) => "prompt",
@@ -128,6 +127,8 @@ fn run(command: Command) -> Result<(), Error> {
                 c.timeout(Duration::from_secs(secs));
             }
             tracing::info!(program, "running");
+            // Runs on Ctrl-C while the command is running.
+            let _cleanup = interrupt::on_interrupt(|| eprintln!("demo: interrupted, cleaning up"));
             if capture {
                 let out = c.capture_stdout()?;
                 println!("captured {} bytes:\n{out}", out.len());
