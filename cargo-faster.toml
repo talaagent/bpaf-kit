@@ -1,0 +1,35 @@
+#:schema https://raw.githubusercontent.com/talaagent/cargo-faster/main/docs/cargo-faster.schema.json
+# Reference: https://github.com/talaagent/cargo-faster/blob/main/docs/cargo-faster.md#the-configuration-file
+
+# The crates edited most in the last six months (git log: bpaf-kit 40,
+# bpaf-kit-macros 11, bpaf-kit-build 10 commits touching them).
+hot = ["bpaf-kit", "bpaf-kit-macros", "bpaf-kit-build"]
+
+[[layer]]
+crates = ["*"]
+must_not_depend_on = ["tala-*"]
+reason = "a standalone public library; tala-agent depends on it, never the reverse"
+
+[[layer]]
+crates = ["bpaf-kit-build"]
+must_not_depend_on = ["*"]
+reason = "bpaf-kit-build is a dependency-free build.rs helper (AGENTS.md)"
+
+# Measured 2026-11-18 with `cargo faster check --timings`, three runs, cold,
+# in `nix develop`, on a shared 32-core dev box (load average ~90, so noisy).
+# Largest of the runs, which the budgets take x1.25 rounded up:
+#   cold check 48.8s (also 10.2s, 2.2s)
+#   critical path: bpaf-kit-macros -> bpaf-kit -> demo (3 crates), or
+#   bpaf-kit-build -> demo in the other runs
+#   edit bpaf-kit 2.4s, bpaf-kit-macros 6.4s, bpaf-kit-build 91.9s
+#   (bpaf-kit-build was 1.3s and 0.9s in the other two runs)
+#   duplicate versions: 1 (syn 2 and 3; thiserror-impl pulls syn 3)
+[budgets]
+cold_check_secs = 61
+edit_rebuild_secs = { bpaf-kit = 3, bpaf-kit-macros = 8, bpaf-kit-build = 115 }
+critical_path_max_crates = 4
+no_new_critical_crates = ["bpaf-kit-macros", "bpaf-kit", "bpaf-kit-build", "demo"]
+max_duplicate_versions = 2
+
+[env]
+nextest_profile = "ci" # CI runs `cargo nextest run --profile ci`
