@@ -22,11 +22,12 @@ reason = "bpaf-kit-build is a dependency-free build.rs helper (AGENTS.md)"
 #   critical path: bpaf-kit-macros -> bpaf-kit -> demo (3 crates), or
 #   bpaf-kit-build -> demo in the other runs
 #   edit bpaf-kit 2.4s, bpaf-kit-macros 6.4s, bpaf-kit-build 91.9s
-#   (bpaf-kit-build was 1.3s and 0.9s in the other two runs)
+#   (bpaf-kit-build was 1.3s and 0.9s in the other two runs; the 91.9s
+#   run was load noise at load ~90, so its budget is 1.3s x 1.25 + margin)
 #   duplicate versions: 1 (syn 2 and 3; thiserror-impl pulls syn 3)
 [budgets]
 cold_check_secs = 61
-edit_rebuild_secs = { bpaf-kit = 3, bpaf-kit-macros = 8, bpaf-kit-build = 115 }
+edit_rebuild_secs = { bpaf-kit = 3, bpaf-kit-macros = 8, bpaf-kit-build = 3 }
 critical_path_max_crates = 4
 no_new_critical_crates = ["bpaf-kit-macros", "bpaf-kit", "bpaf-kit-build", "demo"]
 max_duplicate_versions = 2
