@@ -1,10 +1,20 @@
 {
   description = "bpaf-kit: batteries for Rust CLIs built on bpaf";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
   outputs =
-    { self, nixpkgs }:
+    {
+      self,
+      nixpkgs,
+      rust-overlay,
+    }:
     let
       inherit (nixpkgs) lib;
       systems = [
@@ -13,7 +23,24 @@
         "x86_64-darwin"
         "aarch64-darwin"
       ];
-      forAll = f: lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+      forAll =
+        f:
+        lib.genAttrs systems (
+          system:
+          f (
+            import nixpkgs {
+              inherit system;
+              overlays = [ (import rust-overlay) ];
+            }
+          )
+        );
+      rustToolchain = pkgs: pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+      rustPlatform =
+        pkgs:
+        pkgs.makeRustPlatform {
+          cargo = rustToolchain pkgs;
+          rustc = rustToolchain pkgs;
+        };
 
       # `YYYY-MM-DD` from a flake's lastModifiedDate (`YYYYMMDDhhmmss`).
       flakeDate =
@@ -40,7 +67,7 @@
 
       packages = forAll (pkgs: rec {
         # Built without git info, so it only rebuilds when sources change.
-        demo-unwrapped = pkgs.rustPlatform.buildRustPackage {
+        demo-unwrapped = (rustPlatform pkgs).buildRustPackage {
           pname = "demo";
           version = (lib.importTOML ./Cargo.toml).workspace.package.version;
           src = lib.cleanSource ./.;
@@ -65,15 +92,11 @@
       devShells = forAll (pkgs: {
         default = pkgs.mkShell {
           packages = [
-            pkgs.cargo
-            pkgs.rustc
-            pkgs.clippy
-            pkgs.rustfmt
-            pkgs.rust-analyzer
+            (rustToolchain pkgs)
             pkgs.cargo-nextest
             pkgs.cargo-deny
           ];
-          RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
+          RUST_SRC_PATH = "${rustToolchain pkgs}/lib/rustlib/src/rust/library";
         };
       });
 

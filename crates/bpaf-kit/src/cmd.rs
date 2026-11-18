@@ -1020,7 +1020,7 @@ mod tests {
     fn stdout_to_stderr_is_not_captured() {
         let out = sh("printf out").stdout(Redirect::Stderr).output().unwrap();
         assert!(out.success());
-        assert!(out.stdout.is_empty());
+        assert_eq!(out.stdout, b"");
     }
 
     #[test]
